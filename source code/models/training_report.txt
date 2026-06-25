@@ -1,0 +1,41 @@
+=== RF ===
+Accuracy : 0.9797
+ROC-AUC  : 0.9930
+CV Acc   : 0.9789
+              precision    recall  f1-score   support
+
+  Legitimate       0.99      0.99      0.99     20000
+    Phishing       0.93      0.93      0.93      3320
+
+    accuracy                           0.98     23320
+   macro avg       0.96      0.96      0.96     23320
+weighted avg       0.98      0.98      0.98     23320
+
+
+=== XGB ===
+Accuracy : 0.9810
+ROC-AUC  : 0.9943
+CV Acc   : 0.9818
+              precision    recall  f1-score   support
+
+  Legitimate       0.99      0.99      0.99     20000
+    Phishing       0.95      0.91      0.93      3320
+
+    accuracy                           0.98     23320
+   macro avg       0.97      0.95      0.96     23320
+weighted avg       0.98      0.98      0.98     23320
+
+
+=== SVM ===
+Accuracy : 0.2630
+ROC-AUC  : 0.6878
+CV Acc   : 0.4144
+              precision    recall  f1-score   support
+
+  Legitimate       0.86      0.17      0.28     20000
+    Phishing       0.14      0.84      0.25      3320
+
+    accuracy                           0.26     23320
+   macro avg       0.50      0.50      0.26     23320
+weighted avg       0.76      0.26      0.27     23320
+

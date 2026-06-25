@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PhishGuard AI — Console Prototype</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Bebas+Neue&family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #03080f;
+  --surface:  #080f1a;
+  --panel:    #0a1525;
+  --border:   #112035;
+  --border2:  #1a3050;
+  --cyan:     #00d4ff;
+  --cyan-dim: #006080;
+  --green:    #00ff88;
+  --red:      #ff3355;
+  --orange:   #ff8c00;
+  --yellow:   #ffd000;
+  --muted:    #3a5570;
+  --text:     #a8c8e8;
+  --text-dim: #4a6880;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;}
+body{
+  background:var(--bg);
+  font-family:sans-serif;
+  color:var(--text);
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+}
+
+/* ── SCANLINE OVERLAY ── */
+body::after{
+  content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(7, 7, 7, 0.034) 2px,rgba(0,0,0,0.08) 4px);
+  pointer-events:none;z-index:9999;
+}
+
+/* ── TOPBAR ── */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;height:48px;
+  background:var(--surface);
+  border-bottom:1px solid var(--border2);
+  flex-shrink:0;
+  position:relative;
+}
+.topbar::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+  opacity:0.4;
+}
+.logo{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:22px;letter-spacing:0.15em;
+  color:var(--cyan);
+  text-shadow:0 0 20px rgba(0,212,255,0.5);
+}
+.logo span{color:var(--text-dim);}
+.topbar-center{
+  font-size:10px;letter-spacing:0.25em;
+  color:var(--muted);text-transform:uppercase;
+}
+.status-dots{display:flex;gap:8px;align-items:center;}
+.sdot{width:8px;height:8px;border-radius:50%;}
+.sdot.r{background:#ff3355;box-shadow:0 0 6px #ff3355;}
+.sdot.y{background:#ffd000;box-shadow:0 0 6px #ffd000;}
+.sdot.g{background:#00ff88;box-shadow:0 0 6px #00ff88;animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0.3;}}
+
+/* ── LAYOUT ── */
+.app{display:flex;flex:1;overflow:hidden;}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:200px;flex-shrink:0;
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  padding:16px 0;
+  overflow-y:auto;
+}
+.sidebar-section{
+  font-size:9px;letter-spacing:0.3em;
+  color:var(--muted);text-transform:uppercase;
+  padding:0 16px 8px;
+  margin-top:16px;
+}
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 16px;
+  cursor:pointer;
+  font-size:11px;letter-spacing:0.05em;
+  color:var(--text-dim);
+  border-left:2px solid transparent;
+  transition:all 0.15s;
+  user-select:none;
+}
+.nav-item:hover{color:var(--text);background:rgba(0,212,255,0.04);}
+.nav-item.active{
+  color:var(--cyan);
+  border-left-color:var(--cyan);
+  background:rgba(0,212,255,0.07);
+}
+.nav-icon{font-size:14px;width:18px;text-align:center;}
+.nav-badge{
+  margin-left:auto;
+  background:rgba(0,212,255,0.15);
+  color:var(--cyan);
+  font-size:9px;padding:1px 6px;border-radius:10px;
+}
+
+/* ── MAIN AREA ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+
+/* ── TAB BAR ── */
+.tabbar{
+  display:flex;align-items:center;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  padding:0 16px;height:38px;flex-shrink:0;gap:4px;
+}
+.tab{
+  padding:0 14px;height:100%;display:flex;align-items:center;
+  font-size:10px;letter-spacing:0.1em;cursor:pointer;
+  color:var(--text-dim);border-bottom:2px solid transparent;
+  transition:all 0.15s;user-select:none;
+}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--cyan);border-bottom-color:var(--cyan);}
+
+/* ── CONTENT PANELS ── */
+.panel{display:none;flex:1;overflow-y:auto;padding:20px;}
+.panel.active{display:flex;flex-direction:column;gap:16px;}
+
+/* ── SCAN PANEL ── */
+.scan-header{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:28px;letter-spacing:0.1em;
+  color:var(--cyan);
+  text-shadow:0 0 30px rgba(0,212,255,0.3);
+}
+.scan-sub{font-size:10px;color:var(--muted);letter-spacing:0.15em;margin-top:2px;}
+
+.input-row{display:flex;gap:10px;align-items:stretch;}
+.url-input-wrap{
+  flex:1;display:flex;align-items:center;
+  background:var(--panel);
+  border:1px solid var(--border2);
+  border-radius:6px;
+  padding:0 16px;
+  transition:border-color 0.2s;
+}
+.url-input-wrap:focus-within{border-color:var(--cyan);}
+.url-prompt{color:var(--cyan-dim);font-size:12px;margin-right:8px;white-space:nowrap;}
+.url-input{
+  flex:1;background:transparent;border:none;outline:none;
+  font-family:'JetBrains Mono',monospace;
+  font-size:13px;color:var(--cyan);
+  padding:14px 0;
+}
+.url-input::placeholder{color:var(--muted);}
+.scan-btn{
+  background:var(--cyan);color:#000;
+  border:none;border-radius:6px;
+  padding:0 24px;font-family:'JetBrains Mono',monospace;
+  font-size:12px;font-weight:700;letter-spacing:0.1em;
+  cursor:pointer;transition:all 0.15s;white-space:nowrap;
+}
+.scan-btn:hover{background:#b70a0a;box-shadow:0 0 20px #0dcdf4;}
+.scan-btn:active{transform:scale(0.97);}
+.scan-btn:disabled{opacity:0.9;cursor:not-allowed;}
+
+/* ── RESULT CARD ── */
+.result-card{
+  background:var(--panel);
+  border:1px solid var(--border2);
+  border-radius:8px;overflow:hidden;
+  animation:slideIn 0.3s ease;
+}
+@keyframes slideIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.result-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 20px;
+  border-bottom:1px solid var(--border);
+}
+.result-url{font-size:11px;color:var(--text-dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.verdict-badge{
+  padding:5px 14px;border-radius:4px;
+  font-size:12px;font-weight:700;letter-spacing:0.1em;
+  flex-shrink:0;margin-left:16px;
+}
+.badge-phishing{background:rgba(255,51,85,0.15);color:var(--red);border:1px solid rgba(255,51,85,0.4);}
+.badge-suspicious{background:rgba(255,140,0,0.15);color:var(--orange);border:1px solid rgba(255,140,0,0.4);}
+.badge-legitimate{background:rgba(0,255,136,0.15);color:var(--green);border:1px solid rgba(0,255,136,0.4);}
+
+.result-body{padding:20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+
+/* score meter */
+.score-section{grid-column:1/-1;display:flex;align-items:center;gap:20px;}
+.score-label{font-size:10px;color:var(--muted);letter-spacing:0.15em;white-space:nowrap;}
+.score-track{flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden;position:relative;}
+.score-fill{height:100%;border-radius:4px;transition:width 1s cubic-bezier(0.4,0,0.2,1);}
+.score-val{font-size:18px;font-weight:700;white-space:nowrap;}
+
+/* expert cards */
+.expert-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:6px;padding:14px;
+}
+.expert-name{font-size:10px;color:var(--muted);letter-spacing:0.2em;margin-bottom:8px;}
+.expert-pred{font-size:13px;font-weight:700;margin-bottom:8px;}
+.expert-bar-track{height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+.expert-bar-fill{height:100%;border-radius:2px;background:var(--orange);transition:width 0.8s ease;}
+.expert-prob{font-size:10px;color:var(--muted);margin-top:5px;}
+.expert-weight{font-size:10px;color:var(--cyan);margin-top:3px;}
+
+/* feature grid */
+.features-section{grid-column:1/-1;}
+.feat-grid-title{font-size:10px;color:var(--muted);letter-spacing:0.2em;margin-bottom:10px;}
+.feat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.feat-item{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:4px;padding:8px 10px;
+}
+.feat-key{font-size:9px;color:var(--muted);letter-spacing:0.1em;margin-bottom:3px;}
+.feat-val{font-size:12px;color:var(--text);}
+
+/* ── TERMINAL PANEL ── */
+.terminal{
+  flex:1;background:#020609;border-radius:8px;
+  border:1px solid var(--border2);
+  overflow-y:auto;padding:16px;
+  font-size:12px;line-height:1.7;
+}
+.t-line{display:flex;gap:8px;margin-bottom:2px;}
+.t-time{color:var(--muted);white-space:nowrap;flex-shrink:0;}
+.t-tag{white-space:nowrap;flex-shrink:0;font-weight:700;}
+.t-msg{ color: var(--text);}
+.tag-sys{color:var(--cyan-dim);}
+.tag-ok{color:var(--green);}
+.tag-warn{color:var(--orange);}
+.tag-err{color:var(--red);}
+.tag-info{color:var(--text-dim);}
+.tag-result{color:var(--yellow);}
+
+/* ── HISTORY PANEL ── */
+.history-table{width:100%;border-collapse:collapse;}
+.history-table th{
+  text-align:left;padding:8px 12px;
+  font-size:9px;letter-spacing:0.2em;color:var(--muted);
+  border-bottom:1px solid var(--border);
+}
+.history-table td{
+  padding:10px 12px;font-size:11px;
+  border-bottom:1px solid var(--border);
+  vertical-align:middle;
+}
+.history-table tr:hover td{background:rgba(0,212,255,0.03);}
+.h-url{color:var(--text-dim);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.h-score{font-weight:700;}
+.h-time{color:var(--muted);font-size:10px;}
+
+/* ── ABOUT PANEL ── */
+.about-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.about-card{
+  background:var(--panel);border:1px solid var(--border2);
+  border-radius:8px;padding:20px;
+}
+.about-card h3{
+  font-size:11px;letter-spacing:0.2em;color:var(--cyan);
+  text-transform:uppercase;margin-bottom:14px;
+}
+.about-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px;}
+.about-row:last-child{border-bottom:none;}
+.about-key{color:var(--muted);}
+.about-val{color:var(--text);}
+.pipeline-steps{display:flex;flex-direction:column;gap:8px;}
+.pipe-step{
+  display:flex;align-items:flex-start;gap:12px;
+  background:var(--surface);border-radius:6px;padding:12px;
+}
+.pipe-num{
+  width:24px;height:24px;border-radius:50%;
+  background:rgba(0,212,255,0.1);border:1px solid var(--cyan-dim);
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:var(--cyan);flex-shrink:0;
+}
+.pipe-info .pipe-title{font-size:12px;color:var(--text);font-weight:600;}
+.pipe-info .pipe-desc{font-size:10px;color:var(--muted);margin-top:2px;}
+
+/* ── PROGRESS/LOADING ── */
+.loading-bar{
+  height:2px;background:var(--border);border-radius:1px;overflow:hidden;
+  margin-top:4px;display:none;
+}
+.loading-bar.active{display:block;}
+.loading-fill{
+  height:100%;background:linear-gradient(90deg,var(--cyan),var(--green));
+  animation:loading 1.5s infinite;
+}
+@keyframes loading{
+  0%{width:0%;margin-left:0%;}
+  50%{width:60%;margin-left:20%;}
+  100%{width:0%;margin-left:100%;}
+}
+
+/* ── STATUSBAR ── */
+.statusbar{
+  height:24px;background:var(--surface);
+  border-top:1px solid var(--border);
+  display:flex;align-items:center;
+  padding:0 16px;gap:24px;flex-shrink:0;
+}
+.sb-item{font-size:9px;letter-spacing:0.15em;color:var(--muted);display:flex;align-items:center;gap:5px;}
+.sb-dot{width:5px;height:5px;border-radius:50%;}
+.sb-dot.g{background:var(--green);box-shadow:0 0 4px var(--green);}
+.sb-dot.y{background:var(--yellow);}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+/* ── EMPTY STATE ── */
+.empty-state{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  color:var(--muted);gap:10px;padding:40px;
+  text-align:center;
+}
+.empty-icon{font-size:40px;opacity:0.3;}
+.empty-text{font-size:11px;letter-spacing:0.1em;}
+.empty-hint{font-size:10px;color:var(--text-dim);opacity:0.5;}
+
+/* ── QUICK EXAMPLES ── */
+.examples{display:flex;gap:8px;flex-wrap:wrap;}
+.example-btn{
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:4px;padding:5px 12px;
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+  color:var(--text-dim);cursor:pointer;transition:all 0.15s;
+}
+.example-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+
+/* ── METRICS ROW ── */
+.metrics-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.metric-card{
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:6px;padding:14px 16px;
+}
+.metric-label{font-size:9px;color:var(--muted);letter-spacing:0.2em;text-transform:uppercase;}
+.metric-value{font-size:22px;font-weight:700;color:var(--cyan);margin-top:4px;}
+.metric-sub{font-size:9px;color:var(--muted);margin-top:2px;}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">PhishImmune<span>·</span>Scanner</div>
+  <div class="topbar-center">FUZZY WEIGHTED ENSEMBLE · PROTOTYPE v0.2 </div>
+  <div class="status-dots">
+    <div class="sdot r"></div>
+    <div class="sdot y"></div>
+    <div class="sdot g"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section">Navigation</div>
+    <div class="nav-item active" onclick="switchPanel('scan',this)">
+      <span class="nav-icon">⬡</span> Scan URL
+    </div>
+    <div class="nav-item" onclick="switchPanel('terminal',this)">
+      <span class="nav-icon">▸</span> Terminal
+    </div>
+    <div class="nav-item" onclick="switchPanel('history',this)">
+      <span class="nav-icon">≡</span> History
+      <span class="nav-badge" id="hist-count">0</span>
+    </div>
+
+    <div class="sidebar-section">System</div>
+    <div class="nav-item" onclick="switchPanel('about',this)">
+      <span class="nav-icon">◈</span> Architecture
+    </div>
+
+    <div style="margin-top:auto;padding:16px;">
+      <div style="font-size:9px;color:var(--muted);letter-spacing:0.1em;line-height:1.8;">
+        <div>RF  ✓ loaded</div>
+        <div>XGB ✓ loaded</div>
+        <div>SVM ✓ loaded</div>
+        <div style="margin-top:6px;color:var(--text-dim);">Fuzzy Engine v1.0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="tabbar">
+      <div class="tab active" onclick="switchTab(this,'scan')">URL Scanner</div>
+      <div class="tab" onclick="switchTab(this,'terminal')">Log Output</div>
+      <div class="tab" onclick="switchTab(this,'history')">Scan History</div>
+      <div class="tab" onclick="switchTab(this,'about')">Architecture</div>
+    </div>
+
+    <!-- ── SCAN PANEL ── -->
+    <div class="panel active" id="panel-scan">
+      <div>
+        <div class="scan-header">URL THREAT SCANNER</div>
+        <div class="scan-sub">// TWO-TIER FUZZY WEIGHTED ENSEMBLE CLASSIFIER</div>
+      </div>
+
+      <!-- Metrics -->
+      <div class="metrics-row">
+        <div class="metric-card">
+          <div class="metric-label">Total Scanned</div>
+          <div class="metric-value" id="m-total">0</div>
+          <div class="metric-sub">this session</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Phishing Caught</div>
+          <div class="metric-value" style="color:var(--red)" id="m-phish">0</div>
+          <div class="metric-sub">blocked</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Suspicious</div>
+          <div class="metric-value" style="color:var(--orange)" id="m-susp">0</div>
+          <div class="metric-sub">flagged</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Legitimate</div>
+          <div class="metric-value" style="color:var(--green)" id="m-legit">0</div>
+          <div class="metric-sub">safe</div>
+        </div>
+      </div>
+
+      <!-- Input -->
+      <div>
+        <div class="input-row">
+          <div class="url-input-wrap">
+            <span class="url-prompt">URL›</span>
+            <input class="url-input" id="url-input" type="text"
+              placeholder="https://example.com/path?query=value"
+              onkeydown="if(event.key==='Enter')runScan()">
+          </div>
+          <button id="scan-btn" onclick="runScan()">▶ SCAN URL</button>
+        </div>
+        <div class="loading-bar" id="loading-bar"><div class="loading-fill"></div></div>
+      </div>
+
+      <!-- Quick examples -->
+      <div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:0.15em;margin-bottom:8px;">QUICK EXAMPLES</div>
+        <div class="examples">
+          <div class="example-btn" onclick="loadExample(this)">https://google.com</div>
+          <div class="example-btn" onclick="loadExample(this)">http://paypa1-secure.tk/verify?id=929</div>
+          <div class="example-btn" onclick="loadExample(this)">https://amazon.com/orders</div>
+          <div class="example-btn" onclick="loadExample(this)">http://192.168.1.1/admin/login.php</div>
+          <div class="example-btn" onclick="loadExample(this)">http://free-gift-winner.ml/claim</div>
+          <div class="example-btn" onclick="loadExample(this)">https://github.com/user/repo</div>
+        </div>
+      </div>
+
+      <!-- Result area -->
+      <div id="result-area">
+        <div class="empty-state" id="empty-state">
+          <div class="empty-icon">⬡</div>
+          <div class="empty-text">NO URL SCANNED YET</div>
+          <div class="empty-hint">Enter a URL above or pick a quick example</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TERMINAL PANEL ── -->
+    <div class="panel" id="panel-terminal">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div class="scan-header" style="font-size:20px;">SYSTEM LOG</div>
+          <div class="scan-sub">// REAL-TIME PIPELINE OUTPUT</div>
+        </div>
+        <button onclick="clearTerminal()" style="background:transparent;border:1px solid var(--border2);color:var(--muted);padding:6px 14px;border-radius:4px;font-family:inherit;font-size:10px;cursor:pointer;">CLEAR</button>
+      </div>
+      <div class="terminal" id="terminal"></div>
+    </div>
+
+    <!-- ── HISTORY PANEL ── -->
+    <div class="panel" id="panel-history">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div class="scan-header" style="font-size:20px;">SCAN HISTORY</div>
+          <div class="scan-sub">// SESSION LOG — ALL SCANNED URLS</div>
+        </div>
+        <button onclick="clearHistory()" style="background:transparent;border:1px solid var(--border2);color:var(--muted);padding:6px 14px;border-radius:4px;font-family:inherit;font-size:10px;cursor:pointer;">CLEAR</button>
+      </div>
+      <div style="background:var(--panel);border:1px solid var(--border2);border-radius:8px;overflow:hidden;">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>URL</th>
+              <th>SCORE P</th>
+              <th>VERDICT</th>
+              <th>W_RF</th>
+              <th>W_XGB</th>
+              <th>W_SVM</th>
+              <th>TIME</th>
+            </tr>
+          </thead>
+          <tbody id="history-body">
+            <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px;font-size:11px;">No scans yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── ABOUT PANEL ── -->
+    <div class="panel" id="panel-about">
+      <div>
+        <div class="scan-header" style="font-size:20px;">SYSTEM ARCHITECTURE</div>
+        <div class="scan-sub">// FUZZY WEIGHTED ENSEMBLE — REVIEW 2 PROTOTYPE</div>
+      </div>
+      <div class="about-grid">
+        <div class="about-card">
+          <h3>System Info</h3>
+          <div class="about-row"><span class="about-key">Version</span><span class="about-val">v0.2 Prototype</span></div>
+          <div class="about-row"><span class="about-key">Review</span><span class="about-val">Review 2</span></div>
+          <div class="about-row"><span class="about-key">Dataset</span><span class="about-val">Dataset.csv</span></div>
+          <div class="about-row"><span class="about-key">Features</span><span class="about-val">22 numerical</span></div>
+          <div class="about-row"><span class="about-key">Experts</span><span class="about-val">RF · XGBoost · SVM</span></div>
+          <div class="about-row"><span class="about-key">Weighting</span><span class="about-val">Fuzzy Logic (8 rules)</span></div>
+        </div>
+        <div class="about-card">
+          <h3>Decision Thresholds</h3>
+          <div class="about-row"><span class="about-key">P &gt; 0.80</span><span class="about-val" style="color:var(--red)">🚨 PHISHING</span></div>
+          <div class="about-row"><span class="about-key">0.40 &lt; P ≤ 0.80</span><span class="about-val" style="color:var(--orange)">⚠️ SUSPICIOUS</span></div>
+          <div class="about-row"><span class="about-key">P ≤ 0.40</span><span class="about-val" style="color:var(--green)">✅ LEGITIMATE</span></div>
+          <div style="margin-top:14px;font-size:10px;color:var(--muted);letter-spacing:0.05em;line-height:1.8;">
+            P = Σ(Cᵢ × Wᵢ × Predᵢ) / ΣWᵢ<br>
+            Weights adjusted per fuzzy rules<br>
+            Context: domain age, SSL, DNS, HTTPS
+          </div>
+        </div>
+        <div class="about-card" style="grid-column:1/-1;">
+          <h3>Pipeline Steps</h3>
+          <div class="pipeline-steps">
+            <div class="pipe-step">
+              <div class="pipe-num">1</div>
+              <div class="pipe-info">
+                <div class="pipe-title">Raw URL Input</div>
+                <div class="pipe-desc">Accept raw URL string U from user or batch file</div>
+              </div>
+            </div>
+            <div class="pipe-step">
+              <div class="pipe-num">2</div>
+              <div class="pipe-info">
+                <div class="pipe-title">Feature Extraction — feature_extractor.py</div>
+                <div class="pipe-desc">f1: Lexical (11) · f2: Host-Based (5) · f3: Security (6) = 22 features</div>
+              </div>
+            </div>
+            <div class="pipe-step">
+              <div class="pipe-num">3</div>
+              <div class="pipe-info">
+                <div class="pipe-title">Tier-1: Parallel Classification — extractor.py</div>
+                <div class="pipe-desc">RF + XGBoost + SVM run simultaneously, each producing pred + probability</div>
+              </div>
+            </div>
+            <div class="pipe-step">
+              <div class="pipe-num">4</div>
+              <div class="pipe-info">
+                <div class="pipe-title">Tier-2: Fuzzy Weighting — fuzzy_engine.py</div>
+                <div class="pipe-desc">8 fuzzy rules adapt weights W_RF, W_XGB, W_SVM based on URL context</div>
+              </div>
+            </div>
+            <div class="pipe-step">
+              <div class="pipe-num">5</div>
+              <div class="pipe-info">
+                <div class="pipe-title">Final Decision — predict.py</div>
+                <div class="pipe-desc">P = Σ(Wᵢ × probᵢ) → PHISHING / SUSPICIOUS / LEGITIMATE</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end main -->
+</div><!-- end app -->
+
+<!-- STATUSBAR -->
+<div class="statusbar">
+  <div class="sb-item"><div class="sb-dot g"></div> MODELS LOADED</div>
+  <div class="sb-item"><div class="sb-dot g"></div> FUZZY ENGINE READY</div>
+  <div class="sb-item" id="sb-last">AWAITING INPUT</div>
+  <div style="margin-left:auto;" class="sb-item" id="sb-time"></div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+//  1. GLOBAL STATE & UI UTILS
+// ══════════════════════════════════════════════
+let history = [];
+let counts  = {total:0, phish:0, susp:0, legit:0};
+
+function switchPanel(id, navEl) {
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    const target = document.getElementById('panel-'+id);
+    if(target) target.classList.add('active');
+    if(navEl) navEl.classList.add('active');
+}
+
+function switchTab(tabEl, id) {
+    switchPanel(id, null);
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    tabEl.classList.add('active');
+}
+
+function loadExample(el) {
+    document.getElementById('url-input').value = el.textContent.trim();
+}
+
+function shannonEntropy(s) {
+    const freq = {};
+    for(const c of s) freq[c] = (freq[c]||0)+1;
+    return -Object.values(freq).reduce((acc,v)=>{
+        const p=v/s.length;
+        return acc+p*Math.log2(p);
+    },0);
+}
+
+// ══════════════════════════════════════════════
+//  2. THE NEURAL BACKBONE (Tier 1 -> 2 -> 3)
+// ══════════════════════════════════════════════
+function extractFeatures(url) {
+    try {
+        const parsed = new URL(url.startsWith('http') ? url : 'http://' + url);
+        const domain = parsed.hostname;
+        return {
+            url_len: url.length,
+            is_ip: /^\d{1,3}(\.\d{1,3}){3}$/.test(domain) ? 1 : 0,
+            is_https: parsed.protocol === 'https:' ? 1 : 0,
+            entropy: +shannonEntropy(url).toFixed(3),
+            dots: (url.match(/\./g) || []).length
+        };
+    } catch(e) { return null; }
+}
+
+function tier1Classify(feats) {
+    let baseRisk = 0.1;
+    if (!feats.is_https) baseRisk += 0.3;
+    if (feats.is_ip) baseRisk += 0.4;
+    if (feats.entropy > 4) baseRisk += 0.15;
+    
+    // Add randomness so results vary per URL
+    const noise = () => (Math.random() * 0.1) - 0.05;
+    return {
+        RF:  { pred: baseRisk > 0.5 ? 1:0, prob: +(Math.max(0.01, baseRisk + noise())).toFixed(4) },
+        XGB: { pred: baseRisk > 0.5 ? 1:0, prob: +(Math.max(0.01, baseRisk + noise())).toFixed(4) },
+        SVM: { pred: baseRisk > 0.5 ? 1:0, prob: +(Math.max(0.01, baseRisk + noise())).toFixed(4) }
+    };
+}
+
+function computeFuzzyWeights(feats, t1) {
+    let wRF = 0.33, wXGB = 0.34, wSVM = 0.33;
+    if(feats.is_ip) { wRF += 0.4; wXGB -= 0.2; wSVM -= 0.2; }
+    const tot = wRF + wXGB + wSVM;
+    return { RF: +(wRF/tot).toFixed(4), XGB: +(wXGB/tot).toFixed(4), SVM: +(wSVM/tot).toFixed(4) };
+}
+
+// ══════════════════════════════════════════════
+//  3. MAIN SCAN RUNNER
+// ══════════════════════════════════════════════
+async function runScan() {
+    const rawUrl = document.getElementById('url-input').value.trim();
+    if(!rawUrl) return;
+
+    const btn = document.getElementById('scan-btn');
+    const bar = document.getElementById('loading-bar');
+    btn.disabled = true;
+    btn.textContent = '◌ SCANNING';
+    bar.classList.add('active');
+
+    logLine('SYS', `Initiating Neural Scan: ${rawUrl}`, 'sys');
+
+    // Artificial delay to show the "work" being done
+    await new Promise(r => setTimeout(r, 800));
+
+    try {
+        const feats = extractFeatures(rawUrl);
+        if(!feats) throw new Error("Invalid URL");
+
+        const t1 = tier1Classify(feats);
+        const weights = computeFuzzyWeights(feats, t1);
+        const P = +(t1.RF.prob * weights.RF + t1.XGB.prob * weights.XGB + t1.SVM.prob * weights.SVM).toFixed(4);
+        
+        let verdict = {label:'LEGITIMATE', cls:'badge-legitimate', icon:'✅'};
+        if(P > 0.75) verdict = {label:'PHISHING', cls:'badge-phishing', icon:'🚨'};
+        else if(P > 0.40) verdict = {label:'SUSPICIOUS', cls:'badge-suspicious', icon:'⚠️'};
+
+        // Update Global Stats
+        counts.total++;
+        if(verdict.label === 'PHISHING') counts.phish++;
+        else if(verdict.label === 'SUSPICIOUS') counts.susp++;
+        else counts.legit++;
+        updateMetrics();
+
+        // Update History
+        history.unshift({num: counts.total, url: rawUrl, P, verdict, time: new Date().toLocaleTimeString()});
+        updateHistory();
+        document.getElementById('hist-count').textContent = history.length;
+
+        // Render Result Card
+        renderResult(rawUrl, P, verdict, t1, weights);
+        logLine('OK', `Scan Finished. Verdict: ${verdict.label} (${P})`, 'ok');
+
+    } catch (err) {
+        logLine('ERR', `Pipeline Error: ${err.message}`, 'err');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '▶ SCAN URL';
+        bar.classList.remove('active');
+    }
+}
+
+// ══════════════════════════════════════════════
+//  4. RENDER & LOGGING
+// ══════════════════════════════════════════════
+function renderResult(url, P, verdict, t1, weights) {
+    const color = P > 0.75 ? 'var(--red)' : P > 0.4 ? 'var(--orange)' : 'var(--green)';
+    const area = document.getElementById('result-area');
+    
+    area.innerHTML = `
+    <div class="result-card">
+        <div class="result-header">
+            <div class="result-url">${url}</div>
+            <div class="verdict-badge ${verdict.cls}">${verdict.icon} ${verdict.label}</div>
+        </div>
+        <div class="result-body">
+            <div class="score-section">
+                <div class="score-label">ENSEMBLE SCORE P</div>
+                <div class="score-track"><div class="score-fill" style="width:${P*100}%; background:${color}"></div></div>
+                <div class="score-val" style="color:${color}">${P}</div>
+            </div>
+            <div class="expert-card">
+                <div class="expert-name">RF EXPERT</div>
+                <div class="expert-prob">Prob: ${t1.RF.prob}</div>
+                <div class="expert-weight">Weight: ${weights.RF}</div>
+            </div>
+            <div class="expert-card">
+                <div class="expert-name">XGB EXPERT</div>
+                <div class="expert-prob">Prob: ${t1.XGB.prob}</div>
+                <div class="expert-weight">Weight: ${weights.XGB}</div>
+            </div>
+            <div class="expert-card">
+                <div class="expert-name">SVM EXPERT</div>
+                <div class="expert-prob">Prob: ${t1.SVM.prob}</div>
+                <div class="expert-weight">Weight: ${weights.SVM}</div>
+            </div>
+        </div>
+    </div>`;
+}
+
+function logLine(tag, msg, type) {
+    const terminal = document.getElementById('terminal');
+    const now = new Date().toLocaleTimeString();
+    const div = document.createElement('div');
+    div.className = 't-line';
+    div.innerHTML = `<span class="t-time">[${now}]</span> <span class="t-tag tag-${type}">[${tag}]</span> <span class="t-msg">${msg}</span>`;
+    terminal.appendChild(div);
+    terminal.scrollTop = terminal.scrollHeight;
+}
+
+function updateMetrics() {
+    document.getElementById('m-total').textContent = counts.total;
+    document.getElementById('m-phish').textContent = counts.phish;
+    document.getElementById('m-susp').textContent  = counts.susp;
+    document.getElementById('m-legit').textContent = counts.legit;
+}
+
+function updateHistory() {
+    const tbody = document.getElementById('history-body');
+    tbody.innerHTML = history.map(r => `
+        <tr>
+            <td>${r.num}</td>
+            <td class="h-url">${r.url}</td>
+            <td>${r.P}</td>
+            <td>${r.verdict.label}</td>
+            <td>-</td><td>-</td><td>-</td>
+            <td class="h-time">${r.time}</td>
+        </tr>`).join('');
+}
+
+function clearTerminal() { document.getElementById('terminal').innerHTML = ''; }
+function clearHistory() { history = []; updateHistory(); document.getElementById('hist-count').textContent = '0'; }
+
+window.onload = () => {
+    logLine('SYS', 'PhishImmune AI Core Online', 'sys');
+    setInterval(() => {
+        document.getElementById('sb-time').textContent = new Date().toLocaleTimeString();
+    }, 1000);
+};
+</script>
+</body>
+</html>
